@@ -2392,7 +2392,7 @@ function Window:SelectTab(tab)
 	end
 end
 
-function Window:AddTabDivider(text, layoutOrder)
+function Window:AddTabDivider(text, layoutOrder, _internal)
 	text = tostring(text or "")
 	if text == "" then return nil end
 
@@ -2404,10 +2404,25 @@ function Window:AddTabDivider(text, layoutOrder)
 			existing.LayoutOrder = layoutOrder
 			local meta = self._TabDividerMeta[text] or {}
 			meta.BaseOrder = layoutOrder
+			if meta.AutoCreated == nil then
+				meta.AutoCreated = _internal and true or false
+			end
 			self._TabDividerMeta[text] = meta
 		end
 		if type(self._ReflowSidebar) == "function" then
 			self:_ReflowSidebar()
+		end
+
+		if not _internal and self._LastCreatedTab and self._LastCreatedTab._DividerName ~= text then
+			local lastTab = self._LastCreatedTab
+			local old = lastTab._DividerName
+			lastTab._DividerName = text
+			if type(self._ReflowSidebar) == "function" then
+				self:_ReflowSidebar()
+			end
+			if old and old ~= text and type(self._CleanupAutoDivider) == "function" then
+				self:_CleanupAutoDivider(old)
+			end
 		end
 		return existing
 	end
@@ -2424,11 +2439,48 @@ function Window:AddTabDivider(text, layoutOrder)
 	lbl.LayoutOrder = layoutOrder
 
 	self._TabDividers[text] = lbl
-	self._TabDividerMeta[text] = { BaseOrder = layoutOrder }
+	self._TabDividerMeta[text] = { BaseOrder = layoutOrder, AutoCreated = _internal and true or false }
 	if type(self._ReflowSidebar) == "function" then
 		self:_ReflowSidebar()
 	end
+
+	if not _internal and self._LastCreatedTab and self._LastCreatedTab._DividerName ~= text then
+		local lastTab = self._LastCreatedTab
+		local old = lastTab._DividerName
+		lastTab._DividerName = text
+		if type(self._ReflowSidebar) == "function" then
+			self:_ReflowSidebar()
+		end
+		if old and old ~= text and type(self._CleanupAutoDivider) == "function" then
+			self:_CleanupAutoDivider(old)
+		end
+	end
 	return lbl
+end
+
+function Window:_CleanupAutoDivider(name)
+	name = tostring(name or "")
+	if name == "" then return end
+	if not (self._TabDividerMeta and self._TabDividerMeta[name] and self._TabDividerMeta[name].AutoCreated) then
+		return
+	end
+
+	for _, t in ipairs(self._Tabs or {}) do
+		if t and t._DividerName == name then
+			return
+		end
+	end
+
+	local lbl = self._TabDividers and self._TabDividers[name]
+	if lbl and lbl.Parent then
+		lbl:Destroy()
+	end
+	if self._TabDividers then
+		self._TabDividers[name] = nil
+	end
+	if self._TabDividerMeta then
+		self._TabDividerMeta[name] = nil
+	end
 end
 
 function Window:_ReflowSidebar()
@@ -2659,6 +2711,12 @@ function Window:CreateTab(name, options)
 	tab._CreatedIndex = self._NextTabIndex
 	tab._DividerName = section
 	tab._PinnedOrder = type(options.LayoutOrder) == "number"
+	self._LastCreatedTab = tab
+
+	if section then
+		local dividerOrder = options.DividerOrder or options.SectionOrder or options.CategoryOrder
+		self:AddTabDivider(section, dividerOrder, true)
+	end
 
 	local function isSelected()
 		return self._Selected == tab
