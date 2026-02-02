@@ -633,6 +633,19 @@ function PulseUI:CreateWindow(opts)
 	})
 	sideList.Parent = tabsHolder
 
+	-- Tab section headers (dividers)
+	local homeSorter = makeLabel(tabsHolder, "Home", 12, THEME.muted, Enum.TextXAlignment.Left)
+	homeSorter.Name = "TabSorterHome"
+	homeSorter.Size = UDim2.new(1, 0, 0, 18)
+	homeSorter.TextTransparency = 0.35
+	homeSorter.LayoutOrder = -1000001
+
+	local settingsSorter = makeLabel(tabsHolder, "Settings", 12, THEME.muted, Enum.TextXAlignment.Left)
+	settingsSorter.Name = "TabSorterSettings"
+	settingsSorter.Size = UDim2.new(1, 0, 0, 18)
+	settingsSorter.TextTransparency = 0.35
+	settingsSorter.LayoutOrder = 999999
+
 	local content = create("Frame", {
 		Name = "Content",
 		BackgroundTransparency = 1,
@@ -2371,17 +2384,38 @@ function Window:SelectTab(tab)
 			t.Accent.Visible = true
 			t.Button.BackgroundTransparency = 0
 			tween(t.Button, 0.12, { BackgroundColor3 = THEME.panel2 })
-			t.ButtonText.TextColor3 = THEME.accent
+			t.ButtonText.TextColor3 = THEME.text
+			if t.Icon then
+				t.Icon.ImageColor3 = THEME.text
+			end
 		else
 			t.Page.Visible = false
 			t.Accent.Visible = false
 			t.Button.BackgroundTransparency = 1
 			t.ButtonText.TextColor3 = THEME.muted
+			if t.Icon then
+				t.Icon.ImageColor3 = THEME.muted
+			end
 		end
 	end
 end
 
-function Window:CreateTab(name)
+function Window:AddTabDivider(text, layoutOrder)
+	text = tostring(text or "")
+	local lbl = makeLabel(self.SidebarList or self.Sidebar, text, 12, THEME.muted, Enum.TextXAlignment.Left)
+	lbl.Name = "TabDivider_" .. text
+	lbl.Size = UDim2.new(1, 0, 0, 18)
+	lbl.TextTransparency = 0.35
+	lbl.LayoutOrder = tonumber(layoutOrder) or 0
+	return lbl
+end
+
+function Window:CreateTab(name, options)
+	if type(name) == "table" and options == nil then
+		options = name
+		name = (options and (options.Name or options.Title)) or "Tab"
+	end
+	options = options or {}
 	name = name or "Tab"
 	local lname = tostring(name):lower()
 
@@ -2395,8 +2429,11 @@ function Window:CreateTab(name)
 	})
 	btn.Parent = self.SidebarList or self.Sidebar
 	btn.BackgroundTransparency = 1
+	addCorner(btn, 6)
 	btn.LayoutOrder = 0
-	if lname == "home" then
+	if type(options.LayoutOrder) == "number" then
+		btn.LayoutOrder = options.LayoutOrder
+	elseif lname == "home" or lname == "dashboard" then
 		btn.LayoutOrder = -1000000
 	elseif lname == "settings" then
 		btn.LayoutOrder = 1000000
@@ -2413,10 +2450,24 @@ function Window:CreateTab(name)
 	accentBar.Parent = btn
 	addCorner(accentBar, 2)
 
+	local iconLabel = nil
+	if type(options.Icon) == "string" and options.Icon ~= "" then
+		iconLabel = create("ImageLabel", {
+			Name = "Icon",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Position = UDim2.new(0, 8, 0.5, -8),
+			Size = UDim2.new(0, 16, 0, 16),
+			Image = options.Icon,
+			ImageColor3 = THEME.muted,
+		})
+		iconLabel.Parent = btn
+	end
+
 	local text = makeLabel(btn, name, 12, THEME.muted, Enum.TextXAlignment.Left)
 	text.Name = "Label"
-	text.Position = UDim2.new(0, 10, 0, 0)
-	text.Size = UDim2.new(1, -20, 1, 0)
+	text.Position = UDim2.new(0, iconLabel and 30 or 10, 0, 0)
+	text.Size = UDim2.new(1, -(iconLabel and 40 or 20), 1, 0)
 
 	local page = create("Frame", {
 		Name = "Page_" .. name,
@@ -2480,11 +2531,34 @@ function Window:CreateTab(name)
 		Name = name,
 		Button = btn,
 		ButtonText = text,
+		Icon = iconLabel,
 		Accent = accentBar,
 		Page = page,
 		Left = leftCol.Scroll,
 		Right = rightCol.Scroll,
 	}, Tab)
+
+	local function isSelected()
+		return self._Selected == tab
+	end
+
+	btn.MouseEnter:Connect(function()
+		if isSelected() then return end
+		btn.BackgroundTransparency = 0
+		tween(btn, 0.12, { BackgroundColor3 = THEME.panel2 })
+		text.TextColor3 = THEME.text
+		if iconLabel then
+			iconLabel.ImageColor3 = THEME.text
+		end
+	end)
+	btn.MouseLeave:Connect(function()
+		if isSelected() then return end
+		btn.BackgroundTransparency = 1
+		text.TextColor3 = THEME.muted
+		if iconLabel then
+			iconLabel.ImageColor3 = THEME.muted
+		end
+	end)
 
 	connectTap(btn, function()
 		self:SelectTab(tab)
