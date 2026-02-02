@@ -633,19 +633,6 @@ function PulseUI:CreateWindow(opts)
 	})
 	sideList.Parent = tabsHolder
 
-	-- Tab section headers (dividers)
-	local homeSorter = makeLabel(tabsHolder, "Home", 12, THEME.muted, Enum.TextXAlignment.Left)
-	homeSorter.Name = "TabSorterHome"
-	homeSorter.Size = UDim2.new(1, 0, 0, 18)
-	homeSorter.TextTransparency = 0.35
-	homeSorter.LayoutOrder = -1000001
-
-	local settingsSorter = makeLabel(tabsHolder, "Settings", 12, THEME.muted, Enum.TextXAlignment.Left)
-	settingsSorter.Name = "TabSorterSettings"
-	settingsSorter.Size = UDim2.new(1, 0, 0, 18)
-	settingsSorter.TextTransparency = 0.35
-	settingsSorter.LayoutOrder = 999999
-
 	local content = create("Frame", {
 		Name = "Content",
 		BackgroundTransparency = 1,
@@ -757,6 +744,11 @@ function PulseUI:CreateWindow(opts)
 		_Tabs = {},
 		_Selected = nil,
 		_OpenButton = openBtn,
+		_TabDividers = {},
+		_TabDividerCounts = {},
+		_AutoDividerOrder = -1000001,
+		_TabDividerMeta = {},
+		_NextTabIndex = 0,
 	}, Window)
 
 	-- Bottom-right resize handle (desktop only)
@@ -2402,12 +2394,133 @@ end
 
 function Window:AddTabDivider(text, layoutOrder)
 	text = tostring(text or "")
+	if text == "" then return nil end
+
+	self._TabDividers = self._TabDividers or {}
+	self._TabDividerMeta = self._TabDividerMeta or {}
+	local existing = self._TabDividers[text]
+	if existing and existing.Parent then
+		if type(layoutOrder) == "number" then
+			existing.LayoutOrder = layoutOrder
+			local meta = self._TabDividerMeta[text] or {}
+			meta.BaseOrder = layoutOrder
+			self._TabDividerMeta[text] = meta
+		end
+		if type(self._ReflowSidebar) == "function" then
+			self:_ReflowSidebar()
+		end
+		return existing
+	end
+
+	if type(layoutOrder) ~= "number" then
+		self._AutoDividerOrder = (self._AutoDividerOrder or -1000001) + 1000
+		layoutOrder = self._AutoDividerOrder
+	end
+
 	local lbl = makeLabel(self.SidebarList or self.Sidebar, text, 12, THEME.muted, Enum.TextXAlignment.Left)
 	lbl.Name = "TabDivider_" .. text
 	lbl.Size = UDim2.new(1, 0, 0, 18)
 	lbl.TextTransparency = 0.35
-	lbl.LayoutOrder = tonumber(layoutOrder) or 0
+	lbl.LayoutOrder = layoutOrder
+
+	self._TabDividers[text] = lbl
+	self._TabDividerMeta[text] = { BaseOrder = layoutOrder }
+	if type(self._ReflowSidebar) == "function" then
+		self:_ReflowSidebar()
+	end
 	return lbl
+end
+
+function Window:_ReflowSidebar()
+	local dividers = {}
+	for name, lbl in pairs(self._TabDividers or {}) do
+		if lbl and lbl.Parent then
+			local meta = (self._TabDividerMeta and self._TabDividerMeta[name]) or {}
+			table.insert(dividers, {
+				Name = name,
+				Label = lbl,
+				Base = meta.BaseOrder,
+			})
+		end
+	end
+
+	table.sort(dividers, function(a, b)
+		local ba = a.Base
+		local bb = b.Base
+		if type(ba) == "number" and type(bb) == "number" and ba ~= bb then
+			return ba < bb
+		end
+		if type(ba) == "number" and type(bb) ~= "number" then
+			return true
+		end
+		if type(ba) ~= "number" and type(bb) == "number" then
+			return false
+		end
+		return tostring(a.Name) < tostring(b.Name)
+	end)
+
+	local tabsByDivider = {}
+	local looseTabs = {}
+	for _, t in ipairs(self._Tabs or {}) do
+		if t and t.Button and t.Button.Parent and not t._PinnedOrder then
+			local d = t._DividerName
+			local dividerExists = d and (self._TabDividers and self._TabDividers[d] and self._TabDividers[d].Parent)
+			if dividerExists then
+				tabsByDivider[d] = tabsByDivider[d] or {}
+				table.insert(tabsByDivider[d], t)
+			else
+				table.insert(looseTabs, t)
+			end
+		end
+	end
+
+	local function sortTabs(list)
+		table.sort(list, function(x, y)
+			return (x._CreatedIndex or 0) < (y._CreatedIndex or 0)
+		end)
+	end
+
+	for _, list in pairs(tabsByDivider) do
+		sortTabs(list)
+	end
+	sortTabs(looseTabs)
+
+	local lastOrder = -math.huge
+	for _, d in ipairs(dividers) do
+		local base = d.Base
+		if type(base) ~= "number" then
+			base = (lastOrder == -math.huge) and -1000001 or (lastOrder + 1000)
+			if self._TabDividerMeta then
+				local meta = self._TabDividerMeta[d.Name] or {}
+				meta.BaseOrder = base
+				self._TabDividerMeta[d.Name] = meta
+			end
+		end
+		if base <= lastOrder then
+			base = lastOrder + 1000
+			if self._TabDividerMeta then
+				local meta = self._TabDividerMeta[d.Name] or {}
+				meta.BaseOrder = base
+				self._TabDividerMeta[d.Name] = meta
+			end
+		end
+
+		d.Label.LayoutOrder = base
+		lastOrder = base
+
+		local list = tabsByDivider[d.Name]
+		if list then
+			for i, t in ipairs(list) do
+				t.Button.LayoutOrder = base + i
+				lastOrder = t.Button.LayoutOrder
+			end
+		end
+	end
+
+	for _, t in ipairs(looseTabs) do
+		lastOrder = (lastOrder == -math.huge) and 0 or (lastOrder + 1000)
+		t.Button.LayoutOrder = lastOrder
+	end
 end
 
 function Window:CreateTab(name, options)
@@ -2418,6 +2531,7 @@ function Window:CreateTab(name, options)
 	options = options or {}
 	name = name or "Tab"
 	local lname = tostring(name):lower()
+	local section = options.Divider or options.Section or options.Category
 
 	local btn = create("TextButton", {
 		Name = "TabButton_" .. name,
@@ -2433,6 +2547,9 @@ function Window:CreateTab(name, options)
 	btn.LayoutOrder = 0
 	if type(options.LayoutOrder) == "number" then
 		btn.LayoutOrder = options.LayoutOrder
+		btn.BackgroundTransparency = 1
+	elseif section then
+		btn.LayoutOrder = 0
 	elseif lname == "home" or lname == "dashboard" then
 		btn.LayoutOrder = -1000000
 	elseif lname == "settings" then
@@ -2538,6 +2655,11 @@ function Window:CreateTab(name, options)
 		Right = rightCol.Scroll,
 	}, Tab)
 
+	self._NextTabIndex = (self._NextTabIndex or 0) + 1
+	tab._CreatedIndex = self._NextTabIndex
+	tab._DividerName = section
+	tab._PinnedOrder = type(options.LayoutOrder) == "number"
+
 	local function isSelected()
 		return self._Selected == tab
 	end
@@ -2567,6 +2689,9 @@ function Window:CreateTab(name, options)
 	table.insert(self._Tabs, tab)
 	if not self._Selected then
 		self:SelectTab(tab)
+	end
+	if type(self._ReflowSidebar) == "function" then
+		self:_ReflowSidebar()
 	end
 
 	return tab
