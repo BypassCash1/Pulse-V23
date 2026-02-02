@@ -2396,6 +2396,58 @@ function Window:AddTabDivider(text, layoutOrder, _internal)
 	text = tostring(text or "")
 	if text == "" then return nil end
 
+	-- User-friendly behavior:
+	-- If called right after creating a tab that already has a divider key,
+	-- treat `text` as the DISPLAY title for that divider (prevents "extra" empty dividers).
+	if not _internal then
+		local lastTab = self._LastCreatedTab
+		if lastTab then
+			-- Case 1: Tab already has a divider key -> rename that divider's display text
+			if lastTab._DividerName and lastTab._DividerName ~= "" then
+				local key = tostring(lastTab._DividerName)
+				local lbl = self._TabDividers and self._TabDividers[key]
+				if not (lbl and lbl.Parent) then
+					self:AddTabDivider(key, layoutOrder, true)
+					lbl = self._TabDividers and self._TabDividers[key]
+				end
+				if lbl and lbl.Parent then
+					lbl.Text = text
+					local meta = self._TabDividerMeta[key] or {}
+					meta.AutoCreated = false
+					if type(layoutOrder) == "number" then
+						lbl.LayoutOrder = layoutOrder
+						meta.BaseOrder = layoutOrder
+					end
+					self._TabDividerMeta[key] = meta
+					if type(self._ReflowSidebar) == "function" then
+						self:_ReflowSidebar()
+					end
+					return lbl
+				end
+			else
+				-- Case 2: Tab has no divider key -> attach this divider to the tab
+				local key = text
+				lastTab._DividerName = key
+				self:AddTabDivider(key, layoutOrder, true)
+				local lbl = self._TabDividers and self._TabDividers[key]
+				if lbl and lbl.Parent then
+					lbl.Text = text
+					local meta = self._TabDividerMeta[key] or {}
+					meta.AutoCreated = false
+					if type(layoutOrder) == "number" then
+						lbl.LayoutOrder = layoutOrder
+						meta.BaseOrder = layoutOrder
+					end
+					self._TabDividerMeta[key] = meta
+				end
+				if type(self._ReflowSidebar) == "function" then
+					self:_ReflowSidebar()
+				end
+				return lbl
+			end
+		end
+	end
+
 	self._TabDividers = self._TabDividers or {}
 	self._TabDividerMeta = self._TabDividerMeta or {}
 	local existing = self._TabDividers[text]
