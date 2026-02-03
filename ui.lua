@@ -957,6 +957,7 @@ function PulseUI:CreateWindow(opts)
 	end)
 
 	-- built-in Settings tab
+	self:AddTabDivider("Settings", 1000000)
 	local settingsTab = self:CreateTab("Settings")
 	self.SettingsTab = settingsTab
 	-- Do not force Settings selected by default.
@@ -1410,7 +1411,8 @@ function Window:CreateHomeTab(opts)
 	local discordInvite = tostring(opts.DiscordInvite or "")
 	local changelog = opts.Changelog or {}
 	
-	local tab = self:CreateTab("Home")
+	self:AddTabDivider("Dashboard", -1000001)
+	local tab = self:CreateTab("Dashboard")
 	local content = tab.Page
 	
 	-- Get the columns frame that was created by CreateTab
