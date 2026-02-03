@@ -621,13 +621,16 @@ function PulseUI:CreateWindow(opts)
 		Name = "TabsScroll",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 1, -58),
+		Position = UDim2.new(0, 0, 0, 0),
+		Size = UDim2.new(1, 0, 1, -60),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ScrollBarThickness = 3,
 		ScrollBarImageColor3 = THEME.accent2,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ClipsDescendants = true,
 	})
 	tabsScroll.Parent = sidebar
+	addPadding(tabsScroll, 0)
 
 	local tabsHolder = create("Frame", {
 		Name = "Tabs",
