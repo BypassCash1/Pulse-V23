@@ -957,7 +957,7 @@ function PulseUI:CreateWindow(opts)
 	end)
 
 	-- built-in Settings tab
-	self:AddTabDivider("Settings", 1000000)
+	self:AddTabDivider("Settings", 999999)
 	local settingsTab = self:CreateTab("Settings")
 	self.SettingsTab = settingsTab
 	-- Do not force Settings selected by default.
