@@ -29,17 +29,18 @@ local PulseUI = {}
 
 PulseUI.Themes = {
 	Default = {
-		bg = Color3.fromRGB(10, 10, 10),
-		panel = Color3.fromRGB(16, 16, 16),
-		panel2 = Color3.fromRGB(20, 20, 20),
-		stroke = Color3.fromRGB(60, 60, 60),
-		strokeSoft = Color3.fromRGB(42, 42, 42),
-		label = Color3.fromRGB(170, 170, 170),
-		muted = Color3.fromRGB(140, 140, 140),
-		text = Color3.fromRGB(255, 255, 255),
-		value = Color3.fromRGB(215, 215, 215),
-		accent = Color3.fromRGB(171, 145, 255),
-		accent2 = Color3.fromRGB(108, 94, 186),
+		-- Dark, modern blue/gray base with teal accent (matches the provided reference theme)
+		bg = Color3.fromRGB(12, 14, 19),
+		panel = Color3.fromRGB(16, 18, 25),
+		panel2 = Color3.fromRGB(20, 23, 31),
+		stroke = Color3.fromRGB(46, 52, 66),
+		strokeSoft = Color3.fromRGB(30, 34, 45),
+		label = Color3.fromRGB(182, 190, 206),
+		muted = Color3.fromRGB(140, 150, 168),
+		text = Color3.fromRGB(245, 246, 250),
+		value = Color3.fromRGB(218, 226, 240),
+		accent = Color3.fromRGB(45, 216, 175),
+		accent2 = Color3.fromRGB(30, 160, 135),
 	},
 	Starlight = {
 		bg = Color3.fromRGB(11, 12, 16),
@@ -136,6 +137,40 @@ local function themeNames()
 	table.sort(names)
 	return names
 end
+
+-- Default tab icon mapping (used when CreateTab() is called without an Icon).
+-- You can still override per-tab by passing { Icon = "rbxassetid://..." }.
+PulseUI.DefaultTabIcons = {
+	_exact = {
+		["dashboard"] = "rbxassetid://7733955511",
+		["home"] = "rbxassetid://7733955511",
+		["settings"] = "rbxassetid://7734053495",
+		["config"] = "rbxassetid://7734053495",
+		["local player"] = "rbxassetid://7733955511",
+		["players"] = "rbxassetid://7733955511",
+		["misc"] = "rbxassetid://7733920644",
+		["safe"] = "rbxassetid://7734053495",
+		["visuals"] = "rbxassetid://7734053495",
+		["combat"] = "rbxassetid://7734053495",
+		["aimlock"] = "rbxassetid://7734053495",
+		["silent aim"] = "rbxassetid://7734053495",
+		["teleports"] = "rbxassetid://7743871002",
+		["teleports/purchase"] = "rbxassetid://7743871002",
+	},
+	_contains = {
+		{ key = "teleport", icon = "rbxassetid://7743871002" },
+		{ key = "purchase", icon = "rbxassetid://7743871002" },
+		{ key = "player", icon = "rbxassetid://7733955511" },
+		{ key = "misc", icon = "rbxassetid://7733920644" },
+		{ key = "weapon", icon = "rbxassetid://7734053495" },
+		{ key = "hitbox", icon = "rbxassetid://7734053495" },
+		{ key = "aim", icon = "rbxassetid://7734053495" },
+		{ key = "visual", icon = "rbxassetid://7734053495" },
+		{ key = "setting", icon = "rbxassetid://7734053495" },
+		{ key = "config", icon = "rbxassetid://7734053495" },
+		{ key = "safe", icon = "rbxassetid://7734053495" },
+	},
+}
 
 local function create(className, props)
 	local inst = Instance.new(className)
@@ -477,7 +512,7 @@ function PulseUI:CreateWindow(opts)
 	root.Parent = gui
 	addCorner(root, 4)
 	addStroke(root, 1, THEME.stroke, 0)
-	addStroke(root, 4, THEME.accent, 0.72) -- thicker neon-ish glow outline
+	addStroke(root, 2, THEME.accent, 0.84) -- subtle accent outline
 
 	local topLine = create("Frame", {
 		Name = "TopLine",
@@ -570,6 +605,59 @@ function PulseUI:CreateWindow(opts)
 	sidePad.PaddingTop = UDim.new(0, 12)
 	sidePad.PaddingBottom = UDim.new(0, 10)
 
+	-- Sidebar header (big bold title like the reference UI)
+	local sideHeaderH = 42
+	local sideTitleText = tostring(opts.SideTitle or opts.BrandTitle or title or "Pulse")
+	local sideSubtitleText = opts.SideSubtitle
+	if sideSubtitleText == nil then
+		sideSubtitleText = tostring(opts.SideTagline or "")
+	end
+
+	local sideHeader = create("Frame", {
+		Name = "SidebarHeader",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 0, 0, 0),
+		Size = UDim2.new(1, 0, 0, sideHeaderH),
+		ZIndex = 3,
+	})
+	sideHeader.Parent = sidebar
+
+	local sideTitle = create("TextLabel", {
+		Name = "SideTitle",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 0, 0, 0),
+		Size = UDim2.new(1, 0, 0, 22),
+		Text = sideTitleText,
+		Font = Enum.Font.GothamBold,
+		TextSize = 16,
+		TextColor3 = THEME.text,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 4,
+	})
+	sideTitle.Parent = sideHeader
+
+	local sideSub = nil
+	if tostring(sideSubtitleText or "") ~= "" then
+		sideSub = create("TextLabel", {
+			Name = "SideSubtitle",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Position = UDim2.new(0, 0, 0, 20),
+			Size = UDim2.new(1, 0, 0, 18),
+			Text = tostring(sideSubtitleText),
+			Font = Enum.Font.Gotham,
+			TextSize = 11,
+			TextColor3 = THEME.muted,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			ZIndex = 4,
+		})
+		sideSub.Parent = sideHeader
+	end
+
 	local playerCard = create("Frame", {
 		Name = "PlayerCard",
 		BackgroundColor3 = THEME.panel,
@@ -621,8 +709,8 @@ function PulseUI:CreateWindow(opts)
 		Name = "TabsScroll",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 0, 0),
-		Size = UDim2.new(1, 0, 1, -60),
+		Position = UDim2.new(0, 0, 0, sideHeaderH + 6),
+		Size = UDim2.new(1, 0, 1, -(60 + sideHeaderH + 6)),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ScrollBarThickness = 3,
 		ScrollBarImageColor3 = THEME.accent2,
@@ -718,6 +806,25 @@ function PulseUI:CreateWindow(opts)
 	})
 	circles.Parent = root
 
+	-- Top-right logo icon
+	local topRightLogo = nil
+	local logoImage = opts.Logo or opts.LogoIcon or opts.WindowIcon or "rbxassetid://7733955511"
+	if type(logoImage) == "string" and logoImage ~= "" then
+		local logo = create("ImageLabel", {
+			Name = "TopRightLogo",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -84, 0, 4),
+			Size = UDim2.new(0, 18, 0, 18),
+			Image = logoImage,
+			ImageColor3 = THEME.accent,
+			ZIndex = 6,
+		})
+		logo.Parent = root
+		topRightLogo = logo
+	end
+
 	local function circleButton(order)
 		local b = create("TextButton", {
 			BackgroundColor3 = THEME.strokeSoft,
@@ -751,6 +858,7 @@ function PulseUI:CreateWindow(opts)
 		BottomBar = bottomBar,
 		FooterLabel = footerLbl,
 		PlayerCard = playerCard,
+		_TopRightLogo = topRightLogo,
 		_Minimized = false,
 		_ToggleKey = Enum.KeyCode.RightShift,
 		_ThemeName = "Default",
@@ -2655,6 +2763,41 @@ function Window:CreateTab(name, options)
 	local lname = tostring(name):lower()
 	local section = options.Divider or options.Section or options.Category
 
+	local function resolveIcon()
+		if type(options.Icon) == "string" and options.Icon ~= "" then
+			return options.Icon
+		end
+		local map = PulseUI.DefaultTabIcons
+		if type(map) ~= "table" then return nil end
+		local exact = map._exact
+		if type(exact) == "table" then
+			local ex = exact[lname]
+			if type(ex) == "string" and ex ~= "" then
+				return ex
+			end
+			local sec = tostring(section or ""):lower()
+			if sec ~= "" then
+				local sx = exact[sec]
+				if type(sx) == "string" and sx ~= "" then
+					return sx
+				end
+			end
+		end
+		local contains = map._contains
+		if type(contains) == "table" then
+			for _, row in ipairs(contains) do
+				local key = row and row.key
+				local icon = row and row.icon
+				if type(key) == "string" and key ~= "" and type(icon) == "string" and icon ~= "" then
+					if lname:find(key, 1, true) then
+						return icon
+					end
+				end
+			end
+		end
+		return nil
+	end
+
 	local btn = create("TextButton", {
 		Name = "TabButton_" .. name,
 		Size = UDim2.new(1, 0, 0, 26),
@@ -2690,14 +2833,15 @@ function Window:CreateTab(name, options)
 	addCorner(accentBar, 2)
 
 	local iconLabel = nil
-	if type(options.Icon) == "string" and options.Icon ~= "" then
+	local iconAsset = resolveIcon()
+	if type(iconAsset) == "string" and iconAsset ~= "" then
 		iconLabel = create("ImageLabel", {
 			Name = "Icon",
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Position = UDim2.new(0, 8, 0.5, -8),
 			Size = UDim2.new(0, 16, 0, 16),
-			Image = options.Icon,
+			Image = iconAsset,
 			ImageColor3 = THEME.muted,
 		})
 		iconLabel.Parent = btn
