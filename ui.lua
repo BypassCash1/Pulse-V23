@@ -39,8 +39,9 @@ PulseUI.Themes = {
 		muted = Color3.fromRGB(140, 150, 168),
 		text = Color3.fromRGB(245, 246, 250),
 		value = Color3.fromRGB(218, 226, 240),
-		accent = Color3.fromRGB(45, 216, 175),
-		accent2 = Color3.fromRGB(30, 160, 135),
+		-- Accent (blue) - requested: not green
+		accent = Color3.fromRGB(86, 156, 255),
+		accent2 = Color3.fromRGB(48, 104, 190),
 	},
 	Starlight = {
 		bg = Color3.fromRGB(11, 12, 16),
@@ -510,7 +511,7 @@ function PulseUI:CreateWindow(opts)
 		BorderSizePixel = 0,
 	})
 	root.Parent = gui
-	addCorner(root, 4)
+	addCorner(root, 8)
 	addStroke(root, 1, THEME.stroke, 0)
 	addStroke(root, 2, THEME.accent, 0.84) -- subtle accent outline
 
@@ -550,26 +551,59 @@ function PulseUI:CreateWindow(opts)
 		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
 	end
 
+	local topBarH = 34
 	local topBar = create("Frame", {
 		Name = "TopBar",
 		BackgroundColor3 = THEME.bg,
 		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 24),
+		Size = UDim2.new(1, 0, 0, topBarH),
 	})
 	topBar.Parent = root
 	topBar.BackgroundTransparency = 1
 
-	local titleLabel = makeLabel(topBar, title, 12, Color3.fromRGB(255, 255, 255), Enum.TextXAlignment.Left)
-	titleLabel.Position = UDim2.new(0, 10, 0, 2)
-	titleLabel.Size = UDim2.new(1, -20, 1, -4)
-	titleLabel.TextTransparency = 0.12
+	local topTitleText = tostring(opts.SideTitle or opts.BrandTitle or title or "Pulse")
+	local titleIconAsset = opts.TitleIcon or opts.Logo or opts.LogoIcon or opts.WindowIcon
+	if titleIconAsset == nil then
+		titleIconAsset = ""
+	end
+
+	local titleIcon = nil
+	if type(titleIconAsset) == "string" and titleIconAsset ~= "" then
+		titleIcon = create("ImageLabel", {
+			Name = "TitleIcon",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Position = UDim2.new(0, 10, 0.5, -9),
+			Size = UDim2.new(0, 18, 0, 18),
+			Image = titleIconAsset,
+			ImageColor3 = THEME.text,
+			ZIndex = 6,
+		})
+		titleIcon.Parent = topBar
+	end
+
+	local titleLabel = create("TextLabel", {
+		Name = "TitleLabel",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = topTitleText,
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextColor3 = THEME.text,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+	})
+	titleLabel.Parent = topBar
+	titleLabel.Position = UDim2.new(0, titleIcon and 34 or 10, 0, 0)
+	titleLabel.Size = UDim2.new(1, -(titleIcon and 44 or 20), 1, 0)
+	titleLabel.TextTransparency = 0.08
 
 	local body = create("Frame", {
 		Name = "Body",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 0, 24),
-		Size = UDim2.new(1, 0, 1, -24),
+		Position = UDim2.new(0, 0, 0, topBarH),
+		Size = UDim2.new(1, 0, 1, -topBarH),
 	})
 	body.Parent = root
 
@@ -605,59 +639,6 @@ function PulseUI:CreateWindow(opts)
 	sidePad.PaddingTop = UDim.new(0, 12)
 	sidePad.PaddingBottom = UDim.new(0, 10)
 
-	-- Sidebar header (big bold title like the reference UI)
-	local sideHeaderH = 42
-	local sideTitleText = tostring(opts.SideTitle or opts.BrandTitle or title or "Pulse")
-	local sideSubtitleText = opts.SideSubtitle
-	if sideSubtitleText == nil then
-		sideSubtitleText = tostring(opts.SideTagline or "")
-	end
-
-	local sideHeader = create("Frame", {
-		Name = "SidebarHeader",
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 0, 0),
-		Size = UDim2.new(1, 0, 0, sideHeaderH),
-		ZIndex = 3,
-	})
-	sideHeader.Parent = sidebar
-
-	local sideTitle = create("TextLabel", {
-		Name = "SideTitle",
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 0, 0),
-		Size = UDim2.new(1, 0, 0, 22),
-		Text = sideTitleText,
-		Font = Enum.Font.GothamBold,
-		TextSize = 16,
-		TextColor3 = THEME.text,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 4,
-	})
-	sideTitle.Parent = sideHeader
-
-	local sideSub = nil
-	if tostring(sideSubtitleText or "") ~= "" then
-		sideSub = create("TextLabel", {
-			Name = "SideSubtitle",
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Position = UDim2.new(0, 0, 0, 20),
-			Size = UDim2.new(1, 0, 0, 18),
-			Text = tostring(sideSubtitleText),
-			Font = Enum.Font.Gotham,
-			TextSize = 11,
-			TextColor3 = THEME.muted,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			ZIndex = 4,
-		})
-		sideSub.Parent = sideHeader
-	end
-
 	local playerCard = create("Frame", {
 		Name = "PlayerCard",
 		BackgroundColor3 = THEME.panel,
@@ -668,7 +649,7 @@ function PulseUI:CreateWindow(opts)
 		Size = UDim2.new(1, 0, 0, 44),
 	})
 	playerCard.Parent = sidebar
-	addCorner(playerCard, 3)
+	addCorner(playerCard, 8)
 	playerCard.ZIndex = 2
 	addPadding(playerCard, 8)
 
@@ -709,8 +690,8 @@ function PulseUI:CreateWindow(opts)
 		Name = "TabsScroll",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 0, sideHeaderH + 6),
-		Size = UDim2.new(1, 0, 1, -(60 + sideHeaderH + 6)),
+		Position = UDim2.new(0, 0, 0, 0),
+		Size = UDim2.new(1, 0, 1, -60),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ScrollBarThickness = 3,
 		ScrollBarImageColor3 = THEME.accent2,
@@ -806,24 +787,6 @@ function PulseUI:CreateWindow(opts)
 	})
 	circles.Parent = root
 
-	-- Top-right logo icon
-	local topRightLogo = nil
-	local logoImage = opts.Logo or opts.LogoIcon or opts.WindowIcon or "rbxassetid://7733955511"
-	if type(logoImage) == "string" and logoImage ~= "" then
-		local logo = create("ImageLabel", {
-			Name = "TopRightLogo",
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -84, 0, 4),
-			Size = UDim2.new(0, 18, 0, 18),
-			Image = logoImage,
-			ImageColor3 = THEME.accent,
-			ZIndex = 6,
-		})
-		logo.Parent = root
-		topRightLogo = logo
-	end
 
 	local function circleButton(order)
 		local b = create("TextButton", {
@@ -857,8 +820,7 @@ function PulseUI:CreateWindow(opts)
 		Overlay = overlay,
 		BottomBar = bottomBar,
 		FooterLabel = footerLbl,
-		PlayerCard = playerCard,
-		_TopRightLogo = topRightLogo,
+		_PlayerCard = playerCard,
 		_Minimized = false,
 		_ToggleKey = Enum.KeyCode.RightShift,
 		_ThemeName = "Default",
@@ -2808,7 +2770,7 @@ function Window:CreateTab(name, options)
 	})
 	btn.Parent = self.SidebarList or self.Sidebar
 	btn.BackgroundTransparency = 1
-	addCorner(btn, 6)
+	addCorner(btn, 8)
 	btn.LayoutOrder = 0
 	if type(options.LayoutOrder) == "number" then
 		btn.LayoutOrder = options.LayoutOrder
@@ -2986,7 +2948,7 @@ function Tab:CreateGroup(title, side)
 		AutomaticSize = Enum.AutomaticSize.Y,
 	})
 	group.Parent = parent
-	addCorner(group, 3)
+	addCorner(group, 8)
 	addStroke(group, 1, THEME.strokeSoft, 0)
 
 	local headerText = makeLabel(group, title, 12, THEME.text, Enum.TextXAlignment.Left)
@@ -3893,7 +3855,7 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 	})
 	track.Parent = row
 	track.Active = true
-	addCorner(track, 2)
+	addCorner(track, 3)
 
 	local fill = create("Frame", {
 		BackgroundColor3 = THEME.accent,
@@ -3901,7 +3863,7 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 		Size = UDim2.new(0, 0, 1, 0),
 	})
 	fill.Parent = track
-	addCorner(fill, 2)
+	addCorner(fill, 3)
 
 	local handle = create("Frame", {
 		BackgroundColor3 = THEME.text,
@@ -3930,20 +3892,33 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 	hit.Parent = track
 
 	local dragging = false
+	local smoothConn = nil
+	local visualAlpha = nil
+	local targetAlpha = nil
+	local function setVisualAlpha(a)
+		a = clamp01(a)
+		fill.Size = UDim2.new(a, 0, 1, 0)
+		handle.Position = UDim2.new(a, 0, 0.5, 0)
+	end
 	
 	local function setValue(v, fire)
 		value = math.clamp(v, min, max)
 		local alpha = (value - min) / math.max(1e-9, (max - min))
 		alpha = clamp01(alpha)
 		
-		-- Instant update during drag for smoothness
+		targetAlpha = alpha
 		if dragging then
-			fill.Size = UDim2.new(alpha, 0, 1, 0)
-			handle.Position = UDim2.new(alpha, 0, 0.5, 0)
+			if visualAlpha == nil then
+				visualAlpha = alpha
+				setVisualAlpha(visualAlpha)
+			else
+				-- visuals update from RenderStepped smoothing loop
+			end
 		else
-			-- Only tween when not dragging
-			TweenService:Create(fill, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(alpha, 0, 1, 0)}):Play()
-			TweenService:Create(handle, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(alpha, 0, 0.5, 0)}):Play()
+			-- Smooth tween when not dragging
+			TweenService:Create(fill, TweenInfo.new(0.14, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(alpha, 0, 1, 0)}):Play()
+			TweenService:Create(handle, TweenInfo.new(0.14, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(alpha, 0, 0.5, 0)}):Play()
+			visualAlpha = nil
 		end
 		
 		valLbl.Text = formatNumber(value) .. "/" .. formatNumber(max)
@@ -3972,6 +3947,9 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 	local function stopDragging()
 		dragging = false
 		dragInput = nil
+		if smoothConn then smoothConn:Disconnect() smoothConn = nil end
+		visualAlpha = nil
+		targetAlpha = nil
 		if moveConn then moveConn:Disconnect() moveConn = nil end
 		if endConn then endConn:Disconnect() endConn = nil end
 	end
@@ -3980,7 +3958,24 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
 			dragInput = input
+			visualAlpha = nil
+			targetAlpha = nil
 			updateFromInput(input)
+
+			if smoothConn then smoothConn:Disconnect() smoothConn = nil end
+			smoothConn = RunService.RenderStepped:Connect(function(dt)
+				if not dragging then return end
+				if targetAlpha == nil then return end
+				if visualAlpha == nil then
+					visualAlpha = targetAlpha
+					setVisualAlpha(visualAlpha)
+					return
+				end
+				local k = 18
+				local t = 1 - math.exp(-k * (dt or 0))
+				visualAlpha = visualAlpha + (targetAlpha - visualAlpha) * t
+				setVisualAlpha(visualAlpha)
+			end)
 
 			-- Track movement globally until release (prevents "stuck" drags)
 			if moveConn then moveConn:Disconnect() end
