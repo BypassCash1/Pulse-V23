@@ -515,22 +515,6 @@ function PulseUI:CreateWindow(opts)
 	addStroke(root, 1, THEME.stroke, 0)
 	addStroke(root, 2, THEME.accent, 0.84) -- subtle accent outline
 
-	local topLine = create("Frame", {
-		Name = "TopLine",
-		BackgroundColor3 = THEME.accent,
-		BorderSizePixel = 0,
-		Position = UDim2.new(0, 0, 0, 0),
-		Size = UDim2.new(1, 0, 0, 2),
-	})
-	topLine.Parent = root
-	create("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, THEME.accent),
-			ColorSequenceKeypoint.new(1, THEME.accent2),
-		}),
-		Rotation = 0,
-	}).Parent = topLine
-
 	local scale = create("UIScale", { Scale = 1 })
 	scale.Parent = root
 
@@ -1027,8 +1011,8 @@ function PulseUI:CreateWindow(opts)
 	end)
 
 	-- built-in Settings tab
-	self:AddTabDivider("Settings", 999999)
-	local settingsTab = self:CreateTab("Settings")
+	self:AddTabDivider("Settings", 999999, true)
+	local settingsTab = self:CreateTab({ Name = "Settings", Divider = "Settings" })
 	self.SettingsTab = settingsTab
 	-- Do not force Settings selected by default.
 	settingsTab.Page.Visible = false
@@ -1481,8 +1465,8 @@ function Window:CreateHomeTab(opts)
 	local discordInvite = tostring(opts.DiscordInvite or "")
 	local changelog = opts.Changelog or {}
 	
-	self:AddTabDivider("Dashboard", -1000001)
-	local tab = self:CreateTab("Dashboard")
+	self:AddTabDivider("Dashboard", -1000001, true)
+	local tab = self:CreateTab({ Name = "Dashboard", Divider = "Dashboard" })
 	local content = tab.Page
 	
 	-- Get the columns frame that was created by CreateTab
@@ -1815,7 +1799,7 @@ function Window:CreateHomeTab(opts)
 	discordInteract.MouseLeave:Connect(function()
 		TweenService:Create(discordCard, TweenInfo.new(0.12), {BackgroundColor3 = THEME.panel}):Play()
 	end)
-	discordInteract.MouseButton1Click:Connect(function()
+	connectTap(discordInteract, function()
 		if self._CopyDiscordHandler then
 			local ok = pcall(function()
 				self._CopyDiscordHandler()
@@ -3892,9 +3876,10 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 	hit.Parent = track
 
 	local dragging = false
-	local smoothConn = nil
+	local renderConn = nil
 	local visualAlpha = nil
 	local targetAlpha = nil
+	local lastFired = nil
 	local function setVisualAlpha(a)
 		a = clamp01(a)
 		fill.Size = UDim2.new(a, 0, 1, 0)
@@ -3926,16 +3911,19 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 			window.Flags = window.Flags or {}
 			window.Flags[flag] = value
 		end
-		if fire and callback then taskSpawn(callback, value) end
+		if fire and callback then
+			if lastFired == nil or math.abs(value - lastFired) > 1e-6 then
+				lastFired = value
+				taskSpawn(callback, value)
+			end
+		end
 	end
 
 	setValue(value, false)
 
 	local dragInput
-	local moveConn
 	local endConn
-	local function updateFromInput(input)
-		local x = input.Position.X
+	local function updateFromX(x)
 		local absPos = track.AbsolutePosition.X
 		local absSize = track.AbsoluteSize.X
 		local alpha = (x - absPos) / math.max(1, absSize)
@@ -3947,10 +3935,9 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 	local function stopDragging()
 		dragging = false
 		dragInput = nil
-		if smoothConn then smoothConn:Disconnect() smoothConn = nil end
+		if renderConn then renderConn:Disconnect() renderConn = nil end
 		visualAlpha = nil
 		targetAlpha = nil
-		if moveConn then moveConn:Disconnect() moveConn = nil end
 		if endConn then endConn:Disconnect() endConn = nil end
 	end
 
@@ -3960,33 +3947,35 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 			dragInput = input
 			visualAlpha = nil
 			targetAlpha = nil
-			updateFromInput(input)
+			lastFired = nil
+			updateFromX(input.Position.X)
 
-			if smoothConn then smoothConn:Disconnect() smoothConn = nil end
-			smoothConn = RunService.RenderStepped:Connect(function(dt)
+			if renderConn then renderConn:Disconnect() renderConn = nil end
+			renderConn = RunService.RenderStepped:Connect(function(dt)
 				if not dragging then return end
+				if not track or not track.Parent then
+					stopDragging()
+					return
+				end
+				local x
+				if dragInput and dragInput.UserInputType == Enum.UserInputType.Touch then
+					x = dragInput.Position.X
+				else
+					local ml = UIS:GetMouseLocation()
+					x = ml and ml.X or 0
+				end
+				updateFromX(x)
+
 				if targetAlpha == nil then return end
 				if visualAlpha == nil then
 					visualAlpha = targetAlpha
 					setVisualAlpha(visualAlpha)
 					return
 				end
-				local k = 18
+				local k = 22
 				local t = 1 - math.exp(-k * (dt or 0))
 				visualAlpha = visualAlpha + (targetAlpha - visualAlpha) * t
 				setVisualAlpha(visualAlpha)
-			end)
-
-			-- Track movement globally until release (prevents "stuck" drags)
-			if moveConn then moveConn:Disconnect() end
-			moveConn = UIS.InputChanged:Connect(function(changed)
-				if not dragging then return end
-				if dragInput and dragInput.UserInputType == Enum.UserInputType.Touch and changed ~= dragInput and changed.UserInputType == Enum.UserInputType.Touch then
-					return
-				end
-				if changed.UserInputType == Enum.UserInputType.MouseMovement or changed.UserInputType == Enum.UserInputType.Touch or changed == dragInput then
-					updateFromInput(changed)
-				end
 			end)
 
 			if endConn then endConn:Disconnect() end
@@ -4023,7 +4012,7 @@ function Group:AddSlider(label, min, max, default, callback, flag)
 	track.InputEnded:Connect(endDrag)
 	handle.InputEnded:Connect(endDrag)
 
-	-- (InputChanged/InputEnded handled per-drag in startDrag)
+	-- (Drag updates handled by RenderStepped during active drag)
 
 	local api = {
 		Get = function() return value end,
